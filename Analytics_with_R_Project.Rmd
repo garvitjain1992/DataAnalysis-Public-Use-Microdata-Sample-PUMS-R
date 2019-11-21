@@ -1,0 +1,602 @@
+---
+title: "R_project"
+author: "Garvit Jain"
+date: "12/14/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##1. Data Summary
+
+The data is obtained from the American Community Survey. The data is personal information of the people of United states in 2012 - 2016. This is an observational study on over 10 million records of data being collecetd. 
+
+Here is a description of the data:
+
+The Public Use Microdata Sample (PUMS) contains a sample of actual responses to the American Community Survey (ACS). The PUMS dataset include variables for nearly every question on the survey. Each record in the file represents a single person.The PUMS contain data on approximately one percent of the United States population.
+The original data contain 15,68,1927 cases with 280 variables. Each case in this data set is responses from one person.
+
+As the data is very big, I have filtered out only 8 cases which is required for my analysis. The important variables I have choosen for my analysis are "SEX","AGEP","ST","CIT","SCHL","RAC1P","PERNP"
+
+variable           | description         | type       | data dictionary
+------------------ | ------------------- | ---------- | --------------------
+`AGE`              | age of the people | numerical, discrete / data as numerical |0 - under 1 year; 1-99 - ages 1 to 99
+`CIT`     | citizenship status of the people | categorical, variable | 1 - born in U.S.; 2 - born in Puerto Rico and surrounding area; 3- born abroad of American parent(s); 4 - U.S. citizen by naturalization; 5 - Not U.S. citizen.
+`SCHL`   | educational attainment of the people |  categorical, ordinal / data as numerical | 21 Bachelor's degree; 22 - Masters's degree; 23 - Proffesional's degree; 24 Doctorate's degree.
+`SEX`              | gender of the people | categorical, variable / data as numerical| 1 - male; 2 - female
+`PERNP`   | Earnings of the people | numerical, discrete | N/A - less than 15 years old; 0 - no earnings; -9999 - loss of $9999 or more; -1 to -9998 - loss $1 to $9998; 1-9999999 - earn of $1 to $9999999 (all whole numbers)
+`PINCP` | person's income | numerical, discrete |   N/A - less than 15 years old; 0 - no earnings; -9999 - loss of $9999 or more; -1 to -9998 - loss $1 to $9998; 1-9999999 - income of $1 to $9999999 (all whole numbers) 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(data.table)
+data <- fread(file="popdata.csv")
+
+
+```
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(tidyverse)
+summary_data <- data %>% select("SEX","AGEP","ST","CIT","SCHL","RAC1P","PERNP")
+
+summary(summary_data)
+
+nrow(data)
+
+```
+
+From the data summary we can identify that the mean Age of the US population is 41 years. That means average number of people in the US are of higher age. The mean income of the US population is around 30000 dollars.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+hist(summary_data$AGEP, col = "Orange", main = "Age of US population", xlab = "Age", ylab = "Number")
+
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+head(data)
+
+library(tidyverse)
+
+Sub_Per_Earn <- subset(data, PERNP != "NA" & SCHL != "NA" & PERNP > 499  & SCHL > 0) %>% select(-c(AGEP, PINCP))
+
+
+ggplot(data = Sub_Per_Earn, aes(x = PERNP)) +  geom_histogram(bins = 100, colour="black", fill="purple") + ggtitle("Total personal earning in dollars.") + xlab("Person Earning")
+
+
+```
+
+
+##2. Methodology
+
+I have excluded all the people with less than 500 earnings. There could be many factors that leads to less or no earnings for instance, if the person is very young, it is obvious that his/her earning is negligible. Also, there are many people in the US who are enemployed, therefore, I am only looking at the earnings more than 499 dollars.
+
+The main focus will be on the two variables 'PERNP' and 'SCHL'. I will be looking if the higer degree pays you well. Then I will check if the person's earning changes if an individual is a male or a female living in United States. At last I will check how the perosn earning changes in Bachelor's degree and above if an individual is a US Citizen and a non US citizen.
+
+I have also performed a linear regression and stattistical test and quote the hypothesis about the relation between Person Income and Education attaimaint.
+
+
+**While doing the step by step analysis, I faced few pre processing task and analysis**
+
+**Missig Value:**
+
+I have removed the missing values from the variables that is involved in our analysis and stored the data into a individual dataframes. 
+
+Removing missing values from PERNP and SCHL and SEX: I have analyses using t.test and found that removing NA making a difference in the result. As, NA will affect the mean of the population income and population in certain degrees.
+
+
+**Outliers:** 
+
+Initially when I have made a plot of Educational Institution and income, SEX and Income, there were too many outliers and mostly all the outliers are NA. After removing the NA, the outlier is making perfect sense. As there are few people with exceptionally high income despite of lower level degree. 
+
+In the linear regression, there are no influncial outliers. Hence, the outlier is not affecting the prediction.
+
+**Weights:** 
+
+I have not used weights in my analysis as, weights usually increase standard errors. This increase is usually not large enough to alter the significance level of coefficients, though marginally significant coefficients may become clearly nonsignificant. 
+
+**Plot I want to try but didn't work out:**
+
+I was trying to generate a heatmap of education level and income (Bachelor's degree and above) which shows the density of immigrants when group by education and income.\
+The darker the heat map, more the probability that the person is immigrant. \
+If the graph is darker at the top, it should mean the highest earner is immigrant. Similary, if the grapgh is darker in the bottom it should mean lower earner is immigrant.
+
+**Analyis finally settled on**
+
+Finally I have settled on analysis between different degrees vs earning of US citizen and imigrants.\
+We can also do the hypothesis testing for the difference of mean and claim the hypothesis accordingly.
+
+
+As earning is my main criteria, I am trying to find a relation between earning and other factors like educational attainment, sex.
+
+The below graph shows the earning of US population in dollars.\
+The graph is rightly skewed and tells us that there are very few population earning over 25 hundred thousand dollars. While are good amont of population who are earning very low. This is because they must be in their high school.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(data = Sub_Per_Earn, aes(x = SCHL)) +  geom_bar( colour="gray") + ggtitle("Distribution of educational attainment") + xlab("School attainment")
+
+```
+
+Narrow down the analysis and the number of people holding the Bachelors, Masters, Professional and Doctorate degree is shown below.
+
+The plot shows that majority of the people dont study after their Bachelors degree, while masters degree holder is half of Bachelor degree holder. 
+
+The count of Doctorate degree and Proessional degree is very low.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+degrees <- Sub_Per_Earn %>% subset(PERNP > 0 & SCHL > 0)
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL > 0 & degrees$SCHL <21 , "Others")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 21, "Bachelor's Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 22, "Master's Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 23, "Professional Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 24, "Doctorate Degree")
+
+
+ggplot(degrees, aes(x=SCHL)) + geom_bar(colour="gray", fill="black") + ggtitle("Distribution of educational attainment, by five levels") + xlab("School attainment") + xlab("Higher degree education attainment")
+
+```
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+Cat_Sex_Citiz <- subset(Sub_Per_Earn, SEX != "NA" & CIT != "NA" & PERNP > 0)
+Cat_Sex_Citiz$SEX <- ifelse(Cat_Sex_Citiz$SEX=="2", "female", "male")
+Cat_Sex_Citiz$CIT <- ifelse(Cat_Sex_Citiz$CIT=="5", "not U.S. citizen", "U.S. citizen")
+#Table where "Total_Per_Earn", "SEX" and "Citizen_Stat" variables were changes from numerical to categorical.
+Ed_Sex_Citiz <- subset(degrees, SEX != "NA" & CIT != "NA" & PERNP > 0)
+Ed_Sex_Citiz$SEX <- ifelse(Ed_Sex_Citiz$SEX=="2", "female", "male")
+Ed_Sex_Citiz$CIT <- ifelse(Ed_Sex_Citiz$CIT=="5", "non-U.S. citizen", "U.S. citizen")
+
+```
+
+
+The below graph shows the graphical representaion by gender. \
+The population of male is more than female. However, female population is not far behind.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(Cat_Sex_Citiz, aes(x=SEX)) + geom_bar() + ggtitle("Distribution of Gender") + xlab("Male vs Female")
+
+```
+
+It is interesting to plot the result of number of immigrants and US citizen to further analyse the discussion.
+
+The below plot shows the count of US citizen vs non US citizen.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(Cat_Sex_Citiz, aes(x=CIT)) + geom_bar() + ggtitle("Distribution of citizenship status")  + xlab("US citizen and Non US citizen")
+
+
+```
+
+##3. Findings
+
+Given plot describe the earning after attainting the higher order degrees. This is earning among all the US population including male and female.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2)
+
+ggplot(data = degrees, aes(x = log10(PERNP), fill= SCHL )) +  geom_histogram(bin = 48)  + facet_grid(SCHL~., scales = "free") + ggtitle("Distribution of educational attainment vs log \nof total personal earning by five levels") + xlab("Person Earning")
+
+```
+
+Given is the box plot of the earning against the higher order degrees. This plot help in identifying equality of means and variance among different degrees.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+ggplot(degrees, aes(x=SCHL, y=log10(PERNP), fill= SCHL)) + geom_boxplot() + ggtitle("Distribution of educational attainment vs log \nof total personal earning by five levels") + theme(axis.text.x  = element_text(angle=10,  hjust=0.9, vjust=1.1))+ xlab("Person Earning")
+
+```
+
+Given is the box plot distribution of education attainment and gender. We can see that number of males is higher in all the four education degrees.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = Ed_Sex_Citiz, aes(y = log10(PERNP), x = SEX, fill= SEX)) + geom_boxplot() + facet_grid(.~ SCHL , scales = "free") + ggtitle("Distribution of educational attainment \nvs log of earning by gender")+ xlab("School attainment") + xlab("Gender")
+
+```
+
+
+Given is the box plot of the person earning based on citizenship (US and non US citizen) in Bachelors, Doctorate, Masters and Professional degree. We have observed that earning of US citizen is more than the earning of non US population. This might be because of larger population of the US citizen.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(data = Ed_Sex_Citiz, aes(y = log10(PERNP), x= CIT, fill= CIT)) + geom_boxplot() + facet_grid(.~ SCHL, scales = "free") + ggtitle("Distribution of educational attainment \nvs log of earning by citizenship status") + xlab("Earning") + theme(axis.text.x  = element_text(angle=90,  hjust=0.9, vjust=1.1)) + scale_fill_brewer(palette = "Accent")
+
+```
+
+**Linear Regression**
+
+The relationship appears to be weak linear from the scatter plot and we see that earning increases consistently as the level of school attainment increases.\
+
+Value of correlation coefficient **R is 0.3** which states there is a weak linear relationship. 
+
+Linear regression describes the relationship between a response variable (or dependent variable) of interest and one or more predictor (or independent) variables.\
+The lm method function fits a line to our data that is as close as possible to all hundered thousand of our observations. More specifically, it fits the line in such a way that the sum of the squared difference between the points and the line is minimized, this method is known as ???minimizing least squares???.
+
+Even when a linear regression model fits data very well, the fit is not perfect. The distances between our observations and their model-predicted value are called residuals.\
+Mathematically, can we write the equation for linear regression as: Happiness Score = $/Beta_0 + Beta_1 * GDP + Error$
+
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+lm_log_earn <- lm(log10(PERNP) ~ SCHL, data =
+             Sub_Per_Earn)
+
+
+
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP))) + geom_point() + ggtitle(" Educational attainment vs total personal earning by gender")+ xlab("School attainment") + geom_smooth(method = lm, se=FALSE) 
+
+```
+ 
+Given plot describe that the residuals are well distributed with few values above zero and few below zero. Also, there is no influencial outliers.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+plot(lm_log_earn$residuals ~ log10(Sub_Per_Earn$PERNP))
+abline(h = 0, lty = 3)
+
+```
+
+**How well does the model fit the data?**
+
+The summary of the residuals tells us that how well our model fits the data. The residuals should have a pretty symmtrical distribution around zero.
+
+
+```{r echo=FALSE}
+hist(lm_log_earn$residuals, col = "yellow")
+
+```
+
+Normalisation plot of the residuals.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+qqnorm(lm_log_earn$residuals, col = "purple")
+qqline(lm_log_earn$residuals, col = "blue")
+
+
+```
+
+**Null Hypothesis ($/H_0$):** There is no relationship between education attainment and earnings . Slope of the plot is 0.\
+**Alternate Hypothesis ($/H_a$):** There is some relationship between education attainment and earnings .Slope of the plot is not equal to 0.
+
+The model output will provide us with the information we need to test our hypothesis and assess how well the model fits our data.
+
+**Is the hypothesis supported?**
+
+Coefficients: Estimate and Std. Error:
+
+The intercept in our example is the expected value of earning if the value of education attainment was zero.\
+The slope in the summary is the effect of school attainmmet on person earning. We see that for each additional inch of education attainment, the earning increases by 4.825e-02 value.
+
+The coefficient standard errors tell us the average variation of the estimated coefficients from the actual average of our response variable.
+
+**p value**
+
+The p-value, defined as the probability of observing any value equal or larger than F, if Ho is true. The larger the F statistic, the smaller the p-value. Generally, we use 0.05 as the cutoff for significance; when p-values are smaller than 0.05, we reject H0.
+
+*Since, p value obtained from the summary is 2.2e-16  which is very less than the significance level 0.05, we reject the null hypothesis in favour of the alternate hypothesis. And we conclude that there is some relationship between school attainment and person earning.*
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+summary(lm_log_earn)
+
+```
+
+**ANOVA test to see if there is any relationship between education dgree and person earning **
+
+The below conditions are met for ANOVA:\
+1. There is independence between and within the groups.\
+2. Population distribution is absolutely normal.\
+3. Variance is constant.
+
+Since conditions necessary for ANOVA are satisfied, I will perform hypothesis test:
+
+**Null Hypothesis $H_0$:** There is no difference between the average total personal earnings respondents, between the 5 educational attainment levels, by gender.
+
+**Alternate Hypothesis $H_a$:** At least one of the average total personal earnings respondents is different.
+
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+
+lm_cat_ed_sex <- lm(log10(PERNP) ~  SCHL + SEX , data =
+             Ed_Sex_Citiz)
+
+anova(lm_cat_ed_sex)
+
+```
+
+*Since, the value of F is extremely  high, p value will be very low. Hence, I will reject the null hypothesis in favour of alternate hypothesis and conclude that person earning respondent is different in male and female.* 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP), color=SEX)) + xlab("School attainment")+ geom_point() + ggtitle("Graph 15: Educational attainment vs total personal earning by gender") + geom_smooth(method = lm, se=FALSE) 
+```
+
+
+**ANOVA test to see if there is any relationship between dgree and earning, if we put citizenship status in the secondary variable **
+
+Conditions necessary for ANOVA test below:
+
+The below conditions are met for ANOVA:\
+1. There is independence between and within the groups.\
+2. Population distribution is absolutely normal.\
+3. Variance is constant.
+
+Since conditions necessary for ANOVA are satisfied, I will perform hypothesis test:
+
+**Null Hypothesis $H_0$:**  There is no difference of person earnings , between the 5 educational attainment levels, by citizenship status.
+
+**Alternate Hypothesis $H_a$:** At least one group has shown difference in person earning by citizen.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE}
+
+lm_cat_ed <- lm(log10(PERNP) ~ SCHL + CIT,
+                     data = Ed_Sex_Citiz)
+
+anova(lm_cat_ed)
+
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP), color=CIT)) + geom_point() + ggtitle("Educational attainment and earning by citizenship Status") + geom_smooth(method = lm, se=FALSE)
+```
+
+*Since, the value of F is extremely  high, p value will be very low. Hence, I will reject the null hypothesis in favour of alternate\ hypothesis and conclude that at least one group has shown difference in person earning by citizen.*
+
+
+
+##4. Discussion.
+
+
+After completing various statistical analysis , I come to an conclusion that in United States there is a difference between Person earning and the various important degree of education. My analysis also shows that gender also affects the difference between earning and educational attainment. Lastly I also conclude that citizenship status plays a role in the difference between their earning and educational attainment. 
+
+The potential limitations are,  I have only looked at data for the surveys for the past five years and I would like to see if my conclusion holds true, no matter the time period.
+
+During my analysis, I have explored a lot about my data on various variables. I found out that there are population who have 0  earnings. I analysed that zero earnings means loss of money, also that some people earn as small as less than 100 dollars. I also learned was surprised to know that there were some respondents who had little to no education. 
+
+I have around 80 to 90 percent confidence in my conclusion after doing the above mentioned explantory analysis. The findings I have put upon can be used for policy making, however, I would say it is better to perform my analysis several times and take the best simulated result.  
+
+There is room for future research as I have analysed only a part of this data and the data contains numerous amount of records.
+
+
+##5. Overall Code 
+
+
+```{r eval=FALSE}
+
+#I have created four data frame and then merge the dataframe into a new dataframe called data. Then I have exported the new dataframe into csv which is popdata.csv later I have imported that csv in my analysis.
+
+library(data.table)
+
+
+pop_a <- fread(file="ss16pusa.csv", select = c("SEX","WAGP","AGEP","NATIVITY","WAOB","ST","CIT","SCHL","DECADE","YOEP","RAC1P","ENG","WKHP",
+                                               "POBP","ADJINC","PERNP","PINCP"))
+
+pop_b <- fread(file="ss16pusb.csv", select = c("SEX","WAGP","AGEP","NATIVITY","WAOB","ST","CIT","SCHL","DECADE","YOEP","RAC1P","ENG","WKHP",
+                                               "POBP","ADJINC","PERNP","PINCP"))
+
+pop_c <- fread(file="ss16pusc.csv", select = c("SEX","WAGP","AGEP","NATIVITY","WAOB","ST","CIT","SCHL","DECADE","YOEP","RAC1P","ENG","WKHP",
+                                               "POBP","ADJINC","PERNP","PINCP"))
+
+pop_d <- fread(file="ss16pusd.csv", select = c("SEX","WAGP","AGEP","NATIVITY","WAOB","ST","CIT","SCHL","DECADE","YOEP","RAC1P","ENG","WKHP",
+                                               "POBP","ADJINC","PERNP","PINCP"))
+
+
+data <- subset(rbind(pop_a, pop_b, pop_c, pop_d),
+               (!is.na(NATIVITY) | !is.na(WAOB)) )
+
+write.csv(data, file = "popdata.csv",row.names=FALSE)
+
+```
+
+```{r eval=FALSE}
+#Importing the selected variables from the population data
+
+library(data.table)
+data <- fread(file="popdata.csv")
+
+#data$PERNP <- (data$PERNP * data$ADJINC)/10000
+
+```
+
+```{r eval=FALSE}
+library(tidyverse)
+summary_data <- data %>% select("SEX","AGEP","ST","CIT","SCHL","RAC1P","PERNP")
+
+summary(summary_data)
+
+nrow(data)
+
+```
+
+
+```{r eval=FALSE}
+
+#Histogram of age of US population
+
+hist(summary_data$AGEP, col = "Orange", main = "Age of US population", xlab = "Age", ylab = "Number")
+
+```
+
+
+```{r eval=FALSE}
+
+#Creating a new dataframe by removing NA and keeping the earning value greater than 499
+head(data)
+
+library(tidyverse)
+
+Sub_Per_Earn <- subset(data, PERNP != "NA" & SCHL != "NA" & PERNP > 499  & SCHL > 0) %>% select(-c(AGEP, PINCP))
+
+
+ggplot(data = Sub_Per_Earn, aes(x = PERNP)) +  geom_histogram(bins = 100, colour="black", fill="purple") + ggtitle(" Total personal earning in dollars.") + xlab("Person Earning")
+
+
+```
+
+
+```{r eval=FALSE}
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP), color=SEX)) + geom_point() + ggtitle("Educational attainment vs total personal earning by gender") + xlab("Person Earning")+ geom_smooth(method = lm, se=FALSE) 
+```
+
+
+
+```{r eval=FALSE}
+
+ggplot(data = Sub_Per_Earn, aes(x = SCHL)) +  geom_bar( colour="gray") + ggtitle("Distribution of educational attainment") + xlab("Gender")
+
+```
+
+
+```{r eval=FALSE}
+
+degrees <- Sub_Per_Earn %>% subset(PERNP > 0 & SCHL > 0)
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL > 0 & degrees$SCHL <21 , "Others")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 21, "Bachelor's Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 22, "Master's Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 23, "Professional Degree")
+degrees$SCHL <-  replace(degrees$SCHL, degrees$SCHL == 24, "Doctorate Degree")
+
+
+ggplot(degrees, aes(x=SCHL)) + geom_bar(colour="gray", fill="black") + ggtitle("Distribution of educational attainment, by five levels") 
+
+```
+
+
+```{r eval=FALSE}
+
+#Here I am creating varous dataframe to avoid the changes in the main datarame. Here I am filtering out the citizen ship as US and Non US.
+# I have made an labelling to male and female from 0 and 1 respectively.
+# I have made an labelling to US citizen and Non US citizen from 5 and otherwise.
+
+Cat_Sex_Citiz <- subset(Sub_Per_Earn, SEX != "NA" & CIT != "NA" & PERNP > 0)
+Cat_Sex_Citiz$SEX <- ifelse(Cat_Sex_Citiz$SEX=="2", "female", "male")
+Cat_Sex_Citiz$CIT <- ifelse(Cat_Sex_Citiz$CIT=="5", "not U.S. citizen", "U.S. citizen")
+
+Ed_Sex_Citiz <- subset(degrees, SEX != "NA" & CIT != "NA" & PERNP > 0)
+Ed_Sex_Citiz$SEX <- ifelse(Ed_Sex_Citiz$SEX=="2", "female", "male")
+Ed_Sex_Citiz$CIT <- ifelse(Ed_Sex_Citiz$CIT=="5", "non-U.S. citizen", "U.S. citizen")
+
+```
+
+
+```{r eval=FALSE}
+#Gender distribution of the US population
+
+ggplot(Cat_Sex_Citiz, aes(x=SEX)) + geom_bar() + ggtitle("Distribution of Gender") 
+
+```
+
+```{r eval=FALSE}
+ggplot(Cat_Sex_Citiz, aes(x=CIT)) + geom_bar() + ggtitle("Distribution of citizenship status")  
+
+
+```
+
+
+```{r eval=FALSE}
+library(ggplot2)
+
+ggplot(data = degrees, aes(x = log10(PERNP), fill= SCHL )) +  geom_histogram(bin = 48)  + facet_grid(SCHL~., scales = "free") + ggtitle("Distribution of educational attainment vs log \nof total personal earning by five levels") 
+
+```
+
+
+
+```{r eval=FALSE}
+
+#Given is the box plot distribution of education attainment and gender. We can see that number of males is higher in all the four education degrees.
+
+ggplot(degrees, aes(x=SCHL, y=log10(PERNP), fill= SCHL)) + geom_boxplot() + ggtitle(" Distribution of educational attainment vs log \nof total personal earning by five levels") + theme(axis.text.x  = element_text(angle=10,  hjust=0.9, vjust=1.1))
+
+```
+
+
+
+```{r eval=FALSE}
+
+#Given is the box plot of the person earning based on citizenship (US and non US citizen) in Bachelors, Doctorate, Masters and Professional degree. We have observed that earning of US citizen is more than the earning of non US population. This might be because of larger population of the US citizen.
+
+ggplot(data = Ed_Sex_Citiz, aes(y = log10(PERNP), x = SEX, fill= SEX)) + geom_boxplot() + facet_grid(.~ SCHL , scales = "free") + ggtitle("Distribution of educational attainment \nvs log of earning by gender")
+
+```
+
+
+```{r eval=FALSE}
+ggplot(data = Ed_Sex_Citiz, aes(y = log10(PERNP), x= CIT, fill= CIT)) + geom_boxplot() + facet_grid(.~ SCHL, scales = "free") + ggtitle(" Distribution of educational attainment \nvs log of earning by citizenship status") + theme(axis.text.x  = element_text(angle=90,  hjust=0.9, vjust=1.1)) + scale_fill_brewer(palette = "Accent")
+
+```
+
+
+```{r eval=FALSE}
+#Linear regression
+
+lm_log_earn <- lm(log10(PERNP) ~ SCHL, data =
+             Sub_Per_Earn)
+
+
+
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP))) + geom_point() + ggtitle("Educational attainment vs total personal earning by gender") + geom_smooth(method = lm, se=FALSE) 
+
+```
+ 
+
+
+```{r eval=FALSE}
+#Given plot describe that the residuals are well distributed with few values above zero and few below zero. Also, there is no influencial outliers.
+plot(lm_log_earn$residuals ~ log10(Sub_Per_Earn$PERNP))
+abline(h = 0, lty = 3)
+
+```
+
+
+
+```{r eval=FALSE}
+#The summary of the residuals tells us that how well our model fits the data. The residuals should have a pretty symmtrical distribution around zero.
+hist(lm_log_earn$residuals, col = "yellow")
+
+```
+
+
+```{r eval=FALSE}
+#Normalisation plot of the residuals.
+
+qqnorm(lm_log_earn$residuals, col = "purple")
+qqline(lm_log_earn$residuals, col = "blue")
+
+
+```
+
+```{r eval=FALSE}
+#ANOVA test between education and income when sorted by citizenship.
+
+lm_cat_ed <- lm(log10(PERNP) ~ SCHL + CIT,
+                     data = Ed_Sex_Citiz)
+
+kable(anova(lm_cat_ed))
+
+ggplot(Cat_Sex_Citiz, aes(x=SCHL, y=log10(PERNP), color=CIT)) + geom_point() + ggtitle("Educational attainment and earning by citizenship Status") + geom_smooth(method = lm, se=FALSE)
+
+```
+
+```{r eval=FALSE}
+
+#ANOVA test between education and income when sorted by Gender.
+library(kableExtra)
+
+lm_cat_ed_sex <- lm(log10(PERNP) ~  SCHL + SEX , data =
+             Ed_Sex_Citiz)
+
+kable(anova(lm_cat_ed_sex))
+
+```
+
